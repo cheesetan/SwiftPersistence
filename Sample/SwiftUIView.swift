@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct SwiftUIView: View {
+    @Persistence("test.txt") var document
     var body: some View {
-        Text("Hello, World!")
+        Text(document)
     }
 }
 
