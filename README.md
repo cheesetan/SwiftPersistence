@@ -2,7 +2,7 @@
 
 @Persistent is a property wrapper type that can read and write a persisted value saved in FileManager.
 
-## TL;DR
+## TLDR
 @Persistent works with any Codable type, unlike @AppStorage which is limited to a select few types like String, Int, Double etc.
 @Persistent also provides a lot of the features that @AppStorage does, like default values for persistent variables, and specified names/locations to store the values.
 It's like a persisted version of @State without the hassles of FileManager, UserDefaults, or CoreData.
