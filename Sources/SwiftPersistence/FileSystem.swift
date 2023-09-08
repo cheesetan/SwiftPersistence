@@ -7,10 +7,10 @@
 
 import Foundation
 
-enum FileSystem {
+internal enum FileSystem {
 
     /// Reads a type from a file
-    static func read<T: Decodable>(_ type: T.Type, from file: String) -> T? {
+    internal static func read<T: Decodable>(_ type: T.Type, from file: String) -> T? {
         let filename = getDocumentsDirectory().appendingPathComponent(file)
         if let data = try? Data(contentsOf: filename) {
             if let values = try? JSONDecoder().decode(T.self, from: data) {
@@ -22,7 +22,7 @@ enum FileSystem {
     }
 
     /// Writes a type to a file
-    static func write<T: Encodable>(_ value: T, to file: String, error onError: @escaping (Error) -> Void = { _ in }) {
+    internal static func write<T: Encodable>(_ value: T, to file: String, error onError: @escaping (Error) -> Void = { _ in }) {
         var encoded: Data
 
         do {
@@ -49,18 +49,18 @@ enum FileSystem {
     }
 
     /// Checks if a file exists at a path
-    static func exists(file: String) -> Bool {
+    internal static func exists(file: String) -> Bool {
         let path = getDocumentsDirectory().appendingPathComponent(file)
         return FileManager.default.fileExists(atPath: path.relativePath)
     }
 
     /// Returns the URL of the path
-    static func path(file: String) -> URL {
+    internal static func path(file: String) -> URL {
         getDocumentsDirectory().appendingPathComponent(file)
     }
 
     /// Gets the documents directory
-    static func getDocumentsDirectory() -> URL {
+    internal static func getDocumentsDirectory() -> URL {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         //        Log.info("Documents directory at \(paths[0])")
         return paths[0]
