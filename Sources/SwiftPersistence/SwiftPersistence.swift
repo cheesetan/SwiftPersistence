@@ -3,6 +3,8 @@
 
 import SwiftUI
 
+var writeQueue = DispatchQueue(label: "SwiftPersistence.writeQueue")
+
 /// Persistent is a property wrapper type that can read and write a persisted value saved in FileManager.
 ///
 /// Use persistent as the single source of truth for a given value type that you
@@ -109,35 +111,64 @@ import SwiftUI
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
 @frozen @propertyWrapper public struct Persistent<Value: Codable> : DynamicProperty {
     
-    @State private var value: Value
+    @State private var value: Value?
+    private var defaultValue: Value
     private var internalFilename: String
     private var internalStorageMethod: SwiftPersistenceStorage
-    
-    /// The method chosen to store the encoded JSON String.
-    public enum SwiftPersistenceStorage {
-        case fileManager
-        
-        @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-        case appStorage
+
+    /// A property wrapper type that reflects a value from FileManager and works with all Codable types.
+    /// - Parameters:
+    ///   - filename: The name of the file you want FileManager to save to.
+    ///   - defaultValue: The default value of the variable upon first initialisation of its type.
+    public init(
+        wrappedValue defaultValue: Value,
+        _ fileName: String,
+        store: SwiftPersistenceStorage = .fileManager
+    ) {
+        self.defaultValue = defaultValue
+        self.internalFilename = fileName
+        self.internalStorageMethod = store
+
+        self.value = nil
+    }
+
+    func getValueFromStorage() -> Value? {
+        if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *), internalStorageMethod == .appStorage {
+            @AppStorage(internalFilename) var valueStoredInFilename = Data()
+            do {
+                let decodedData = try JSONDecoder().decode(Value.self, from: valueStoredInFilename)
+                return decodedData
+            } catch {}
+        } else if internalStorageMethod == .fileManager,
+                  let result = FileSystem.read(Value.self, from: internalFilename) {
+            return result
+        }
+        return nil
     }
     
     /// The underlying value referenced by the binding variable.
     public var wrappedValue: Value {
-        get { value }
+        get {
+            value ?? getValueFromStorage() ?? defaultValue
+        }
         nonmutating set {
-            switch internalStorageMethod {
-            case .fileManager:
-                fileSystemRead(newValue)
-            case .appStorage:
-                if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
-                    appStorageRead(newValue)
-                } else {
-                    fileSystemRead(newValue)
+            value = newValue
+
+            writeQueue.async {
+                switch internalStorageMethod {
+                case .fileManager:
+                    fileSystemWrite(newValue)
+                case .appStorage:
+                    if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
+                        appStorageWrite(newValue)
+                    } else {
+                        fileSystemWrite(newValue)
+                    }
                 }
             }
         }
-        
     }
+
     /// A projection of the binding value that returns a binding.
     public var projectedValue: Binding<Value> {
         Binding(
@@ -145,57 +176,30 @@ import SwiftUI
             set: { wrappedValue = $0 }
         )
     }
-    
-    /// A property wrapper type that reflects a value from FileManager and works with all Codable types.
-    /// - Parameters:
-    ///   - filename: The name of the file you want FileManager to save to.
-    ///   - defaultValue: The default value of the variable upon first initialisation of its type.
-    public init(wrappedValue defaultValue: Value, _ fileName: String, store: SwiftPersistenceStorage = SwiftPersistenceStorage.fileManager) {
-        internalFilename = fileName
-        internalStorageMethod = store
-        
-        switch store {
-        case .fileManager:
-            if let result = FileSystem.read(Value.self, from: fileName) {
-                _value = State(wrappedValue: result)
-            } else {
-                _value = State(wrappedValue: defaultValue)
-            }
-        case .appStorage:
-            if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
-                @AppStorage(fileName) var valueStoredInFilename = Data()
-                do {
-                    let decodedData = try JSONDecoder().decode(Value.self, from: valueStoredInFilename)
-                    _value = State(wrappedValue: decodedData)
-                } catch {
-                    print("Error occurred while attempting to decode from AppStorage")
-                    _value = State(wrappedValue: defaultValue)
-                }
-            } else {
-                // Fallback to fileManager
-                if let result = FileSystem.read(Value.self, from: fileName) {
-                    _value = State(wrappedValue: result)
-                } else {
-                    _value = State(wrappedValue: defaultValue)
-                }
-            }
-        }
-    }
-    
-    private func fileSystemRead(_ newValue: Value) {
+
+    private func fileSystemWrite(_ newValue: Value) {
         FileSystem.write(newValue, to: internalFilename)
-        value = newValue
     }
     
     @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-    private func appStorageRead(_ newValue: Value) {
+    private func appStorageWrite(_ newValue: Value) {
         @AppStorage(internalFilename) var valueStoredInFilename = Data()
         do {
             let encodedNewValue = try JSONEncoder().encode(newValue)
             valueStoredInFilename = encodedNewValue
-            value = newValue
         } catch {
             print("Error occurred while attempting to encode to AppStorage")
         }
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
+public extension Persistent {
+    /// The method chosen to store the encoded JSON String.
+    enum SwiftPersistenceStorage {
+        case fileManager
+
+        @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+        case appStorage
     }
 }

@@ -115,3 +115,7 @@ binding to the persistent using the dollar sign prefix:
 Declare ``Persistent`` as private to prevent setting it in a memberwise initializer.
 Use persistent for storage that's local to a view and its subviews and requires it to be
 persisted.
+
+## Implementation Details
+SwiftPersistence uses the FileSystem class from 
+[The GlassRoom](https://github.com/KaiTheRedNinja/The-GlassRoom) to manage saving to the file system

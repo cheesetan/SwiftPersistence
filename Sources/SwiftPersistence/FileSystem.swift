@@ -1,8 +1,8 @@
 //
 //  FileSystem.swift
 //
-//
-//  Created by Tristan Chay on 8/9/23.
+//  Created by Kai Quan Tay on 13/5/23 for The GlassRoom.
+//  Transferred by Tristan Chay on 8/9/23.
 //
 
 import Foundation
@@ -93,28 +93,3 @@ public extension URL {
         return attributes?[.creationDate] as? Date
     }
 }
-
-public extension Array {
-    func mergedWith(other: [Element],
-                    isSame: (Element, Element) -> Bool,
-                    isBefore: (Element, Element) -> Bool) -> [Element] {
-        let mergedArray = self + other
-        let sortedArray = mergedArray.sorted(by: isBefore)
-        var result: [Element] = []
-
-        for element in sortedArray {
-            if !result.contains(where: { isSame($0, element) }) {
-                result.append(element)
-            }
-        }
-
-        return result
-    }
-
-    mutating func mergeWith(other: [Element],
-                            isSame: (Element, Element) -> Bool,
-                            isBefore: (Element, Element) -> Bool) {
-        self = mergedWith(other: other, isSame: isSame, isBefore: isBefore)
-    }
-}
-
